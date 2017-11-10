@@ -70,6 +70,29 @@ def get_user_tweets(user):
         f = open(CACHE_FNAME,'w')
         f.write(json.dumps(CACHE_DICTION))
         f.close()
+    
+    conn = sqlite3.connect('206_APIsAndDBs.sqlite')
+    cur = conn.cursor()
+    cur.execute('DROP TABLE IF EXISTS Tweets')
+    cur.execute('CREATE TABLE Tweets (tweet_id TEXT, "text" TEXT, user_posted TEXT, time_posted TIMESTAMP, retweets NUMBER)')
+    cur.execute('DROP TABLE IF EXISTS Users')
+    cur.execute('CREATE TABLE Users (user_id TEXT, screen_name TEXT, num_favs NUMBER, description TEXT)')
+    user_results = api.get_user(screen_name = user)
+    search_user_info = user_results["id"], user_results["screen_name"], user_results["favourites_count"], user_results["description"]
+    cur.execute('INSERT INTO Users (user_id, screen_name, num_favs, description) VALUES (?, ?, ?, ? )', search_user_info)
+    for tweet in twitter_results:
+    	data = tweet["id"], tweet["text"],  user_results["id"], tweet["created_at"], tweet["retweet_count"]
+    	cur.execute('INSERT INTO Tweets (tweet_id, "text" , user_posted, time_posted, retweets) VALUES (?, ?, ?, ?, ? )', data)
+    for tweet in twitter_results:
+    	if len(tweet["entities"]["user_mentions"]) > 0:
+    		ls = list()
+    		for entry in tweet["entities"]["user_mentions"]:
+    			ls.append(entry["screen_name"])
+    		for l in ls:
+    			user_results = api.get_user(screen_name = "@" + l)
+    			data = user_results["id"], user_results["screen_name"], user_results["favourites_count"], user_results["description"]
+    			cur.execute('INSERT INTO Users (user_id, screen_name, num_favs, description) VALUES (?, ?, ?, ? )', search_user_info)
+    conn.commit()
     return twitter_results
 
 
@@ -107,31 +130,7 @@ umich_tweets = get_user_tweets("@umich")
 ## dictionary -- you don't need to do any manipulation of the Tweet 
 ## text to find out which they are! Do some nested data investigation 
 ## on a dictionary that represents 1 tweet to see it!
-conn = sqlite3.connect('206_APIsAndDBs.sqlite')
-cur = conn.cursor()
 
-# 2 - Write code to drop the Tweets table if it exists, and create the table (so you can run the program over and over), with the correct (4) column names and appropriate types for each.
-# HINT: Remember that the time_posted column should be the TIMESTAMP data type!
-cur.execute('DROP TABLE IF EXISTS Tweets')
-cur.execute('CREATE TABLE Tweets (tweet_id TEXT, "text" TEXT, user_posted TEXT, time_posted TIMESTAMP, retweets NUMBER)')
-
-cur.execute('DROP TABLE IF EXISTS Users')
-cur.execute('CREATE TABLE Users (user_id TEXT, screen_name TEXT, num_favs NUMBER, description TEXT)')
-
-
-#tweet = umich_tweets[0]
-#print(tweet.keys())
-#print(umich_tweets[1]["entities"]["user_mentions"][0]["id"])
-
-for tweet in umich_tweets:
-	data = tweet["id"], tweet["text"], tweet["user"]["screen_name"],  tweet["created_at"], tweet["retweet_count"]
-	cur.execute('INSERT INTO Tweets (tweet_id, "text" , user_posted, time_posted, retweets) VALUES (?, ?, ?, ?, ? )', data)
-	try: 
-		user_data = tweet["entities"]["user_mentions"][0]["id"], tweet["entities"]["user_mentions"][0]["screen_name"], tweet["user"]["favorite_count"], tweet["entities"]["user_mentions"][0]["name"]
-		cur.execute('INSERT INTO Users (user_id, screen_name , num_favs, description) VALUES (?, ?, ?, ? )', user_data)
-	except:
-		continue
-conn.commit()
 
 ## Task 3 - Making queries, saving data, fetching data
 
