@@ -89,9 +89,14 @@ def get_user_tweets(user):
     		for entry in tweet["entities"]["user_mentions"]:
     			ls.append(entry["screen_name"])
     		for l in ls:
-    			user_results = api.get_user(screen_name = "@" + l)
+    			screename = "@" + tweet["entities"]["user_mentions"][0]["screen_name"]
+    			user_results = api.get_user(screen_name = screename)
     			data = user_results["id"], user_results["screen_name"], user_results["favourites_count"], user_results["description"]
-    			cur.execute('INSERT INTO Users (user_id, screen_name, num_favs, description) VALUES (?, ?, ?, ? )', search_user_info)
+    			cur.execute('SELECT screen_name FROM Users WHERE screen_name = ? LIMIT 1', (user_results["screen_name"],))
+    			try:
+    				acct = cur.fetchone()[0]
+    			except:
+    				cur.execute('INSERT INTO Users (user_id, screen_name, num_favs, description) VALUES (?, ?, ?, ? )', data)
     conn.commit()
     return twitter_results
 
