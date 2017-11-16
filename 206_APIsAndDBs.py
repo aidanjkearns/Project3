@@ -59,30 +59,49 @@ except:
 
 
 # Define your function get_user_tweets here:
-def get_user_tweets(user):
+def get_user_tweets(user): #Both Task 1 and 2 are contained within get_user_tweets() input is screen_name search
     if user in CACHE_DICTION:
         print('Data was in the cache')
         twitter_results = CACHE_DICTION[user] #check if cache already exists
     else:
-        print('Making a request for (new data...')  #if it doesnt search for umsi tweets and create new cache
-        twitter_results = api.user_timeline(screen_name = user)
+        print('Making a request for (new data...')  #if it doesnt search for user tweets and create new cache
+        twitter_results = api.user_timeline(screen_name = user)	#get tweet info on the user
         CACHE_DICTION[user] = twitter_results
         f = open(CACHE_FNAME,'w')
         f.write(json.dumps(CACHE_DICTION))
         f.close()
     
-    conn = sqlite3.connect('206_APIsAndDBs.sqlite')
+    conn = sqlite3.connect('206_APIsAndDBs.sqlite') #Connect to Database
     cur = conn.cursor()
-    cur.execute('DROP TABLE IF EXISTS Tweets')
-    cur.execute('CREATE TABLE Tweets (tweet_id TEXT, "text" TEXT, user_posted TEXT, time_posted TIMESTAMP, retweets NUMBER)')
-    cur.execute('DROP TABLE IF EXISTS Users')
-    cur.execute('CREATE TABLE Users (user_id TEXT, screen_name TEXT, num_favs NUMBER, description TEXT)')
-    user_results = api.get_user(screen_name = user)
+    #See if Tweets table exists if it does not create table
+    try:
+    	cur.execute('SELECT tweet_id FROM Tweets')
+    except:
+    	cur.execute('CREATE TABLE Tweets (tweet_id TEXT, "text" TEXT, user_posted TEXT, time_posted TIMESTAMP, retweets NUMBER)')
+    #See if Users table exists if it does not create table
+    try:
+    	cur.execute('SELECT user_id FROM Users')
+    except:
+    	cur.execute('CREATE TABLE Users (user_id TEXT, screen_name TEXT, num_favs NUMBER, description TEXT)')
+    #get user info on the user searched and add to User table
+    user_results = api.get_user(screen_name = user)	
     search_user_info = user_results["id"], user_results["screen_name"], user_results["favourites_count"], user_results["description"]
-    cur.execute('INSERT INTO Users (user_id, screen_name, num_favs, description) VALUES (?, ?, ?, ? )', search_user_info)
+    #check that user is not already in table
+    cur.execute('SELECT screen_name FROM Users WHERE screen_name = ? LIMIT 1', (search_user_info[1],))
+    try:
+    	acct = cur.fetchone()[0]
+    except:
+    	cur.execute('INSERT INTO Users (user_id, screen_name, num_favs, description) VALUES (?, ?, ?, ? )', search_user_info)
+    #Add tweet info into Tweets
     for tweet in twitter_results:
     	data = tweet["id"], tweet["text"],  user_results["id"], tweet["created_at"], tweet["retweet_count"]
-    	cur.execute('INSERT INTO Tweets (tweet_id, "text" , user_posted, time_posted, retweets) VALUES (?, ?, ?, ?, ? )', data)
+    	cur.execute('SELECT "text" FROM Tweets WHERE "text" = ? LIMIT 1',(tweet["text"],))
+    	#check if tweet is already in Tweets
+    	try:
+    		acct = cur.fetchone()[0]
+    	except:
+    		cur.execute('INSERT INTO Tweets (tweet_id, "text" , user_posted, time_posted, retweets) VALUES (?, ?, ?, ?, ? )', data)
+    #Search user info for all users mentioned in tweets and add to User table
     for tweet in twitter_results:
     	if len(tweet["entities"]["user_mentions"]) > 0:
     		ls = list()
@@ -98,6 +117,7 @@ def get_user_tweets(user):
     			except:
     				cur.execute('INSERT INTO Users (user_id, screen_name, num_favs, description) VALUES (?, ?, ?, ? )', data)
     conn.commit()
+    cur.close()
     return twitter_results
 
 
@@ -141,6 +161,7 @@ umich_tweets = get_user_tweets("@umich")
 
 # All of the following sub-tasks require writing SQL statements 
 # and executing them using Python.
+
 conn = sqlite3.connect('206_APIsAndDBs.sqlite')
 cur = conn.cursor()
 # Make a query to select all of the records in the Users database. 
@@ -188,7 +209,6 @@ joined_data = [result for result in results]
 cur.execute('SELECT screen_name, "text" FROM Tweets INNER JOIN Users on user_posted = user_id ORDER BY retweets DESC')
 results = cur.fetchall()
 joined_data2 = [result for result in results]
-print(joined_data2)
 
 
 ### IMPORTANT: MAKE SURE TO CLOSE YOUR DATABASE CONNECTION AT THE END 
@@ -296,4 +316,4 @@ class Task3(unittest.TestCase):
 
 
 if __name__ == "__main__":
-	unittest.main(verbosity=2)
+	unittest.main(verbosity=2, warnings='ignore')
