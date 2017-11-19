@@ -1,3 +1,4 @@
+#Aidan Kearns
 ## SI 206 2017
 ## Project 3
 ## Building on HW7, HW8 (and some previous material!)
@@ -118,7 +119,7 @@ def get_user_tweets(user): #Both Task 1 and 2 are contained within get_user_twee
     				cur.execute('INSERT INTO Users (user_id, screen_name, num_favs, description) VALUES (?, ?, ?, ? )', data)
     conn.commit()
     cur.close()
-    return twitter_results
+    return twitter_results #python object containing info on Tweets from the searched user 
 
 
 
